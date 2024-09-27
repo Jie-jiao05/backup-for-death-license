@@ -1,0 +1,356 @@
+---
+title: "Trends in Death License: Analyzing the Distribution of Death Licenses in Great Toronto Area"
+subtitle: "Potentional Relation to Extreme Weather and Covid19"
+author: 
+  - Shanjie Jiao
+thanks: "Code and data are available at: https://github.com/Jie-jiao05/Paper-1.git"
+date: today
+date-format: long
+
+abstract: "During the global pandemic, heightened sensitivity to mortality became evident, while urbanization is boosting disparities between urban and rural areas in terms of population density, economic growth, infrastructure, and public health services. While the number of deaths and death licenses are all conceptual data of death, but with two distinct concepts, COVID-19 showed a positive correlation with the number of recorded deaths. However, death licenses followed a different pattern, the peak of death license happens in January, whcih is recorded as the month with most sever weather, it may contribute to a higher death license number. And the data does not suggest it has a clear impact of COVID-19 on the issuance of death licenses. A proper understanding of the death license dataset will enable experts to conduct a more comprehensive analysis of the reasons for death and to improve health policy."
+
+format: pdf
+toc: true
+number-sections: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r}
+#| include: false
+#| warning: false
+#| message: false
+
+library(tidyverse)
+library(palmerpenguins)
+library(readr)
+library(here)
+library(knitr)
+library(forecast)
+library(lubridate)
+
+
+mydatapath <- "~/Desktop/Death-License-Project/Death_License_main_file/data/analysis_data/analysis_data.csv"
+data <- read_csv(mydatapath)
+```
+
+
+
+# Introduction
+
+
+While much of the existing research has focused on disparities in healthcare access, income, and community resources, few studies have examined the changes in death license issuance between urban and rural areas in response to various external factors during or after the COVID-19 pandemic. This study aims to fill that gap by analyzing death license data from Toronto and regions Outside City Limits, as recorded by civic centers, to observe how these areas have responded to different external factors.
+
+Death licenses, as vital documents that provide detailed death information, offer a richer source of data than mere mortality numbers, allowing for a more nuanced approach to health-policy-making.
+The findings of this study may offer valuable insights for urban planners and public health experts, helping them understand the differences between urban and rural environments when extract data for further study that could used to investigate public health.
+
+The paper is structured as follows: In @sec-data it will presents the general data trends from 2011 to 2024, including measurement techniques. Since the data for 2024 is incomplete, previous records are used to predict death license trends from September to December 2024. In @sec-results it critically examines the data, comparing the number of death licenses issued in Toronto and Outside City Limits on a monthly basis, with a focus on periods of high extreme weather frequency. The comparison also covers the years before and during the COVID-19 pandemic to investigate whether the increase in mortality caused by COVID-19 led to a higher issuance of death licenses.The results indicate that the peak in death licenses, particularly in January, may be linked to extreme weather events causing increased mortality. However, COVID-19 does not appear to have caused a significant change in the number of death licenses issued. In @sec-discussion The limitation of this research will be further elaborates .
+
+
+
+
+# Data {#sec-data}
+
+## Data Source and Measurement 
+
+This report utilizes data collected by the City Clerk’s Office, published in Open Data Toronto, titled "Death Registry Statistics" [@opendatatoronto]. This specific dataset, used for the graphs and analyses in this paper, includes information about the number of death licenses issued, the civic centers (Scarborough, North York, Toronto, and Etobicoke) where they were issued, places of death, and time periods, along with unique identifiers for each record. Additionally, the dataset may not capture the complete number of deaths due to generate death license is totaly optional so not all death record will generate a death license. As this dataset only count the number of death license, so it do not include other personal information or detail in death. Importantly, no personal information is included in this dataset, as it is solely used to count the number of death licenses in Toronto and outside city limits, preserving the confidentiality of individuals’ associated information [@opendatatoronto].
+
+## Data Tools
+
+The dataset was analyzed using R [@citeR] and downloaded using the R package opendatatoronto [@opendatatoronto]. Additionally, the packages tidyverse [@citetidyverse], lubridate [@citelubridate], readr [@citereadr], forecast [@citeforecast], ggplot [@citeggplot], dplyr [@citedplyr], here[@citehere], forecast [@citeforecast], styler[@citestyler] have been used in data cleaning and visualization.
+
+
+## Data Characteristics 
+
+The raw dataset contained 948 unique observations and 5 variable columns. All data are recorded as either constants or strings, and each entry is filled with valid information. In the first cleaning step, this paper separated the "period" column into "year" and "month." Subsequently, I created a new "date" column by combining the year and month into a proper date format to facilitate easier data retrieval. A glimpse of the final cleaned dataset can be seen in @tbl-00.
+
+
+```{r}
+#| label: tbl-00
+#| tbl-cap: "Sample of Cleaned Data of Death License in Toronto and Outside City Limits Area "
+#| echo: false
+#| message: false
+#| warning: false
+
+
+cleaned_data <- read_csv(here::here("~/Desktop/Death-License-Project/Death_License_main_file/data/analysis_data/analysis_data.csv"))
+
+# Display the first 10 rows of the data as a table
+cleaned_data %>%
+  head(10) %>%
+  kable()
+```
+## Data Record 
+```{r}
+#| label: fig-01
+#| fig-cap: "Histogram of Death Lincese From 2011 to 2024"
+#| fig-align: 'center'
+#| echo: false
+#| warning: false
+library(readr)
+
+data <- read_csv(here::here("~/Desktop/Death-License-Project/Death_License_main_file/data/analysis_data/analysis_data.csv"))
+
+data |>
+  filter(place_of_death %in% c("Toronto", "Outside City Limits")) |>
+  group_by(year, place_of_death) |>
+  summarise(death_licenses = sum(death_licenses), .groups = "drop") |>
+  ggplot(mapping = aes(x = year, y = death_licenses, fill = place_of_death)) +
+  geom_bar(stat = "identity", position = "dodge", alpha = 0.5) +
+  theme_minimal() +
+  labs(
+    x = "Year", y = "Number of Death Licenses",
+    fill = "Place of Death",
+    caption = "Data source: Opendatatoronto."
+  ) +
+  scale_fill_brewer(palette = "Set1")
+```
+
+Table @fig-01 illustrates a consistent difference in the number of death licenses issued in Toronto compared to the Outside City Limit area from 2011 to August 2024. While the general disparity between the two regions remains relatively unchanged, it is noteworthy that the number of death licenses in Toronto declined in 2022 but returned to the average levels in 2023. Since the dataset provided by OpenData Toronto, City Clerk's Office [@toronto2024data] is updated monthly, data for September to December 2024 cannot be obtained until the completion of this paper, which may introduce some bias for this specific period. In  @sec-pre, this paper will attempt to predict this segment of data by building a predictive model using the historical data collected in this dataset.
+
+
+
+```{r}
+#| label: fig-02
+#| tbl-cap: "Percentage of Death Licenses in Toronto and Outside City Limits in 2011-2024 "
+#| echo: false
+#| message: false
+#| warning: false
+
+# Read the CSV file
+data <- read_csv(here::here("~/Desktop/Death-License-Project/Death_License_main_file/data/analysis_data/analysis_data.csv"))
+
+# Process the data to get total death licenses per place of death
+pie_data <- data %>%
+  # Filter only the relevant locations
+  filter(place_of_death %in% c("Toronto", "Outside City Limits")) %>%
+  # Group by place of death and sum the death licenses
+  group_by(place_of_death) %>%
+  summarise(death_licenses = sum(death_licenses, na.rm = TRUE)) %>%
+  # Calculate percentage of death licenses
+  mutate(
+    percentage = death_licenses / sum(death_licenses) * 100,
+    # Create label with specific percentage format
+    label = paste0(round(percentage, 1), "%")
+  )
+
+# Create a pie chart with percentage labels
+ggplot(pie_data, aes(x = "", y = percentage, fill = place_of_death)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y") + # Convert bar chart to pie chart
+  geom_text(aes(label = label), position = position_stack(vjust = 0.5)) + # Add percentage labels
+  labs(
+    title = "Percentage of Death Licenses in Toronto and Outside City Limits in 2011-2024",
+    fill = "Place of Death",
+    caption = "Data source: Opendatatoronto."
+  ) +
+  theme_void() + # Remove axis and grid lines for pie chart
+  theme(legend.position = "right") # Position on the right
+
+death_licenses_summary <- data %>%
+  filter(place_of_death %in% c("Toronto", "Outside City Limits")) %>% # Filter for Toronto and Outside City Limits
+  group_by(place_of_death, civic_centre) %>%
+  summarise(total_death_licenses = sum(death_licenses, na.rm = TRUE)) %>%
+  mutate(percentage = total_death_licenses / sum(total_death_licenses) * 100) # Calculate percentage
+```
+In @fig-02, it is evident that Toronto accounts for 78.9% of the death licenses issued during this time period, while Outside City Limits comprises the remaining 21.1%. This significant disparity in population density is a consequence of urbanization, which results in diminished resource inflow to Outside City Limits.
+
+
+
+
+
+
+
+
+## Data Prediction {#sec-pre}
+To enhance the completeness of the data and improve year-over-year trend measurement, this paper utilizes time series analysis on the data from September to December for the years 2011 to 2023.  This approach captures trends to forecast and generate future values. The results of this predictive model are illustrated in @fig-03.  Additionally, we can simulate overall data by incorporating these predictions into the bar chart displayed in @fig-04, to maintain the rigor of the analysis, the generated prediction data will not be included in this study.
+
+```{r}
+#| label: fig-03
+#| tbl-cap: "Prediction of Death License in 2024 9-12 "
+#| echo: false
+#| message: false
+#| warning: false
+#|
+# Read the data
+data <- read_csv(here::here("~/Desktop/Death-License-Project/Death_License_main_file/data/analysis_data/analysis_data.csv"))
+
+# Data manipulation to summarize total death licenses by month
+summary_monthly_data <- data |>
+  group_by(year, month) |>
+  summarise(death_licenses = sum(death_licenses, na.rm = TRUE), .groups = "drop")
+
+# Convert to time series object
+ts_data <- ts(summary_monthly_data$death_licenses, start = c(min(summary_monthly_data$year), 1), frequency = 12)
+
+# Forecasting for September to November 2024
+forecast_horizon <- 3 # We want to forecast for 3 months
+fit <- ets(ts_data) # Exponential smoothing state space model
+forecast_results <- forecast(fit, h = forecast_horizon)
+
+# Prepare data for bar chart
+predicted_months <- c("Sep 2024", "Oct 2024", "Nov 2024")
+predicted_values <- as.numeric(forecast_results$mean)
+
+# Create a data frame for plotting
+prediction_data <- data.frame(
+  month = predicted_months,
+  death_licenses = predicted_values
+)
+
+# Create the bar chart for the forecasted death licenses
+ggplot(prediction_data, aes(x = month, y = death_licenses)) +
+  geom_bar(stat = "identity", fill = "steelblue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    x = "Month",
+    y = "Predicted Number of Death Licenses",
+    title = "Predicted Death Licenses for September to November 2024",
+    caption = "Data source: Opendatatoronto."
+  )
+total_predicted_death_licenses <- sum(predicted_values)
+# Print the total predicted death licenses
+```
+
+
+Based on the available data, a slow upward trend can be observed for Outside City Limits, while the Toronto area exhibits a more fluctuating trend. However, as indicated by predictions model shown in @fig-03, it is anticipated that the total number of death licenses in 2024 will exceed the mean line, resulting in a slight upward adjustment of the true mean line compared to the simulation presented in this paper.
+
+
+
+```{r}
+#| label: fig-04
+#| fig-cap: "Line Plot of Total Death License by Year"
+#| fig-align: 'center'
+#| echo: false
+#| message: false
+#| warning: false
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+# Ensure your date column is in Date format
+data$date <- as.Date(data$date)
+
+# Filter for relevant places and extract year
+yearly_death_licenses <- data |>
+  filter(place_of_death %in% c("Toronto", "Outside City Limits")) |> # Filter for Toronto and Outside City Limits
+  mutate(year = year(date)) |> # Create a new column for the year
+  group_by(year, place_of_death) |> # Group by year and place of death
+  summarise(total_death_licenses = sum(death_licenses, na.rm = TRUE), .groups = "drop") # Sum up death licenses
+
+# Calculate the mean for each place of death
+mean_death_licenses <- yearly_death_licenses |>
+  group_by(place_of_death) |> # Group by place of death
+  summarise(mean_death_licenses = mean(total_death_licenses, na.rm = TRUE), .groups = "drop")
+
+# Create the line plot
+ggplot(yearly_death_licenses, aes(x = year, y = total_death_licenses, color = place_of_death)) +
+  geom_line(size = 1.2) + # Line for each place of death
+  geom_point(size = 3) + # Points on the line for better visibility
+  geom_hline(
+    data = mean_death_licenses, aes(yintercept = mean_death_licenses, color = place_of_death),
+    linetype = "dashed", size = 1
+  ) + # Mean line
+  theme_minimal() +
+  labs(
+    title = "Line Plot of Total Death License by Year",
+    x = "Year",
+    y = "Total Number of Death Licenses",
+    caption = "Data source: Opendatatoronto.",
+    color = "Place of Death"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis labels for better visibility
+```
+# Results {#sec-results}
+## Death License with Month
+The peak in death licenses consistently occurs in January each year. In recent years, extreme weather has been linked to an increase in mortality and may have an impact on the number of death licenses. As illustrated in @fig-05, the bar chart displays the total number of death licenses by month from 2011 to 2024 (excluding September to December 2024), revealing that January is the only month with a notable peak. In contrast, the remaining months generally fall within the mean line. According to data from the City of Toronto, there were a total of 262 extreme weather events from 2011 to 2022, with 115 occurring in January【@toronto2022extreme】. Given that Toronto's summer climate is more favorable compared to other regions, it may have a lower impact from extreme heat on mortality in summer. However, severe cold weather in winter could contribute to an increase in deaths, leading to a higher number of death licenses issued in January. A population-based study published in CMAJ, titled "Assessment of the Effect of Cold and Hot Temperatures on Mortality in Ontario, Canada," reveals that each 5°C change in daily temperature is estimated to induce 7 excess deaths per day during cold seasons and 4 excess deaths during warm seasons【@chen2016assessment】. This suggests that extreme winter weather may be a contributing factor to the increase in mortality which may have a positive relation with death license.
+```{r}
+#| label: fig-05
+#| fig-cap: "Total Death License by Month"
+#| fig-align: 'center'
+#| echo: false
+#| message: false
+#| warning: false
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+# Ensure your date column is in Date format
+data$date <- as.Date(data$date)
+
+# Extract month from the date and aggregate death licenses by month (regardless of year)
+monthly_death_licenses <- data |>
+  mutate(month = month(date, label = TRUE, abbr = TRUE)) |> # Create a new column for the month
+  group_by(month) |> # Group by month
+  summarise(total_death_licenses = sum(death_licenses, na.rm = TRUE), .groups = "drop") # Sum up death licenses
+
+# Calculate the mean total death licenses
+mean_death_licenses <- mean(monthly_death_licenses$total_death_licenses)
+
+# Create the bar chart with mean line
+ggplot(monthly_death_licenses, aes(x = month, y = total_death_licenses)) +
+  geom_bar(stat = "identity", fill = "skyblue") + # Bar for each month
+  geom_hline(yintercept = mean_death_licenses, color = "red", linetype = "dashed", size = 1) + # Mean line
+  theme_minimal() +
+  labs(
+    title = "Total Death Licenses by Month (2011-2024)",
+    x = "Month",
+    y = "Total Number of Death Licenses",
+    caption = "Data source: Opendatatoronto."
+  ) +
+  scale_x_discrete(limits = month.abb) + # Ensure months are in order
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis labels for better visibility
+```
+
+
+## Death License with Covid
+@fig-06 presents the dataset displayed beneath the dot plot, which has been narrowed down to the period from 2017 to 2024 to facilitate a visual observation of changes in the number of death licenses during the COVID-19 pandemic. The data for each month is presented separately. There was not a significant change in death licenses during the pandemic years (2019-2022), with the graph revealing extreme values in only three months. Notably, one of these peaks occurred in August 2020, but this spike did not indicate a consistent trend and subsequently fell back, suggesting it should be treated as an outlier and not considered statistically significant. Overall, the distribution of death licenses appears to align more closely with a uniform distribution.
+
+```{r}
+#| label: fig-06
+#| fig-cap: "Monthly Death License Dot Plot"
+#| echo: false
+#| message: false
+#| warning: false
+
+# Read the CSV file
+data <- read_csv(here::here("~/Desktop/Death-License-Project/Death_License_main_file/data/analysis_data/analysis_data.csv"))
+
+# Process the data
+plot_data <- data %>%
+  # Filter only the relevant locations
+  filter(place_of_death %in% c("Toronto", "Outside City Limits")) %>%
+  # Group by year, month, and place of death, and sum the death licenses
+  group_by(year, month, place_of_death) %>%
+  summarise(death_licenses = sum(death_licenses, na.rm = TRUE), .groups = "drop") %>%
+  # Create a new date column for easier plotting
+  mutate(date = make_date(year, month, 1)) %>%
+  # Filter to restrict time from 2015 to 2024
+  filter(year >= 2016 & year <= 2023)
+
+# Create a dot plot with clearer x-axis
+ggplot(plot_data, aes(x = date, y = death_licenses, color = place_of_death)) +
+  geom_point(size = 3) + # Use points for the dot plot
+  scale_x_date(date_labels = "%b %Y", date_breaks = "5 months") + # Show every 4 months
+  labs(
+    title = "Monthly Death Licenses in Toronto and Outside City \n Limits (2015-2024)",
+    x = "Year-Month",
+    y = "Number of Death Licenses",
+    color = "Place of Death",
+    caption = "Data source: Opendatatoronto."
+  ) +
+  theme_minimal() + # Clean theme
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis text for readability
+```
+# Discussion {#sec-discussion}
+
+This paper analyzes the number of death licenses registered by civic centers from 2011 to September 2024. By visualizing death licenses by year and month and employing time series forecasting, the study concludes that the peak in death licenses occurs in January, a month often associated with severe weather conditions, which may contribute to an increase in the number of death licenses issued.Despite the negative impacts of COVID-19 on Canada’s economy, society, and healthcare, the distribution of death licenses each year does not reveal a noticeable trend, suggesting that it likely follows a uniform distribution. Consequently, the dataset does not support a conclusive positive or negative correlation with the pandemic.
+
+The dataset consists only of numerical counts, civic centers, and localities, making it impossible to determine the causes of death. Moreover, since death licenses are not mandatory for all deaths and do not equate to the total number of deaths in the Toronto area, this data cannot provide a comprehensive analysis of total deaths or their causes. However, it is useful for government officials to understand how many deaths have occurred in the Toronto area and to facilitate the application for death licenses for administrative purposes.For government departments, death license statistics are valuable for registration and the improvement of health policies. As of the completion of this article, data for the period from September to December 2024 is not yet available. However, the main data analyzed avoids this specific time frame, and the projections made in the article are sufficiently described, minimizing potential biases in the analysis.
+
+# LLMs
+
+Statement on LLM usage: LLMs were used in the making of this paper.
+
+# References 
